@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mental Health Chatbot</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+        }
+
+        body {
+            display: flex;
+            height: 100vh;
+            background-color: #cae8ff;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+
+        /* Login Buttons */
+        .btn {
+            position: fixed;
+            width: 60px;
+            height: 300px;
+            font-size: 20px;
+            font-weight: bold;
+            color: white;
+            border: none;
+            cursor: pointer;
+            border-radius: 10px;
+            background-color: #050a30;
+            transition: box-shadow 0.3s ease;
+            writing-mode: vertical-rl;
+            text-align: center;
+        }
+
+        /* Guest Login Button (Left) */
+        .guest-btn {
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+
+        /* User Login Button (Right) */
+        .user-btn {
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+
+        /* Hover Effect */
+        .btn:hover {
+            box-shadow: 10px 10px 20px rgba(44, 62, 199, 0.5);
+        }
+
+        /* Main Content */
+        .main-content {
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* Image Styling */
+        .logo {
+            max-width: 500px;
+            height: auto;
+        }
+
+        .des {
+            max-width: 700px;
+            height: auto;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Guest Login Button (Left) -->
+    <button class="btn guest-btn">Guest Login</button>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <img src="thero1.png" alt="Thero Logo" class="logo">
+        <img src="description.png" alt="Thero Description" class="des">
+    </div>
+
+    <!-- User Login Button (Right) -->
+    <button class="btn user-btn">User Login</button>
+
+</body>
+</html>
