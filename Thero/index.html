@@ -77,6 +77,37 @@
             height: auto;
             margin-top: 20px;
         }
+
+        .des-container {
+            position: relative;
+            display: inline-block;
+        }
+
+        /* Black box underneath */
+        .shadow-box {
+            position: absolute;
+            top: 10px;  /* Moves the shadow down */
+            left: 10px; /* Moves the shadow to the right */
+            width: 100%;
+            height: 100%;
+            background-color: black;
+            border-radius: 30px;
+            z-index: -1; /* Ensures it stays behind */
+        }
+
+        /* Content box */
+        .styled-box {
+            position: relative;
+            max-width: 800px;
+            padding: 50px 140px;
+            background-color: white;
+            border-radius: 30px;
+            text-align: center;
+            font-size: 18px;
+            color: #050a30;
+            font-weight: bold;
+            border: 2px solid black; /* Added black border */
+        }
     </style>
 </head>
 <body>
@@ -87,7 +118,14 @@
     <!-- Main Content -->
     <div class="main-content">
         <img src="thero1.png" alt="Thero Logo" class="logo">
-        <img src="description.png" alt="Thero Description" class="des">
+        <div class="des-container">
+            <div class="shadow-box"></div> <!-- Black Box Underneath -->
+            <div class="styled-box">
+                We created an astonishing chatbot experience for Mental Health stability. 
+                It enhances your lifestyle and helps release your inner fears and instabilities.
+            </div>
+        </div>
+    
     </div>
 
     <!-- User Login Button (Right) -->
