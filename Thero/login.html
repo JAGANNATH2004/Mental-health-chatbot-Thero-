@@ -65,6 +65,14 @@
             box-shadow: 5px 5px 10px rgba(0, 0, 0, 0.3);
         }
     </style>
+    <script>
+    $(document).ready(function(){
+    $("#btn").click(function(){
+            alert("You double clicked the message");
+    });
+    }
+    </script>
+                      
 </head>
 <body>
 
@@ -73,7 +81,7 @@
         <input type="text" placeholder="Username">
         <input type="password" placeholder="Password">
         <a href='bot/bot.html'>
-        <button>Login</button>
+        <button id="btn">Login</button>
         </a>
     </div>
 </body>
