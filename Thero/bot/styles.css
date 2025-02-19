@@ -43,13 +43,8 @@ body {
     z-index: 1; /* Ensure chat container stays on top of the video */
 }
 
-.chat-title {
-    text-align: center;
-    padding: 15px;
-    font-size: 24px; /* Increased font size */
-    background-color: #ffffff; /* Title background */
-    margin: 0;
-    border: #2c2f33;
+img{
+    width: 22%;
 }
 
 .chat-box {
