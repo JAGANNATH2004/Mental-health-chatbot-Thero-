@@ -6,6 +6,8 @@ body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     background-color: #cae8ff; /* Dark background */
     height: 100vh; /* Ensure the body takes full viewport height */
+    overflow: hidden;
+    height: 100%;
 }
 
 .bg-video {
