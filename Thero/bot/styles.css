@@ -17,7 +17,7 @@ body {
     object-fit: cover;
     transform: translate(-50%, -50%);
     z-index: -1; /* Ensure the video is behind the content */
-    position: static
+    position: static;
 }
 .bg-audio {
     position: absolute;
