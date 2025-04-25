@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thero.chat</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <audio autoplay loop playsinline class="bg-audio">
+        <source src="audio.mp3" type="audio/mp3">
+        Your browser does not support the audio element.
+    </audio>
+
+    <video autoplay loop muted playsinline class="bg-video">
+        <source src="logo_video1.mp4" type="video/mp4">
+        Your browser does not support the video tag.
+    </video>
+
+    <div class="chat-container">
+        <div class="home-icon" onclick="goHome()">
+            <img src="home.png" alt="Home" class="home-img">
+        </div>        
+        <center><img src="Thero1.png" alt="Thero Logo"></center>
+        <div id="logout">
+            <button onclick="logout()">Logout and login as user</button> 
+            <button onclick="glogout()">Logout and login as guest user</button>
+        </div>
+        <div class="chat-box" id="chat-box">
+            <div class="chat-message bot-message">
+                <span id="msg">Thero: Welcome! Please write at least 50 words describing your problem.</span>
+            </div>
+        </div>
+        <div class="input-container">
+            <input type="text" id="user-input" placeholder="Type your message..." onkeypress="handleKeyPress(event)">
+            <button id="send-button" type="submit" onclick="sendMessage()">Send</button>
+        </div>
+    </div>
+
+    <script>
+        function goHome() {
+            localStorage.removeItem("loggedInUser");
+            localStorage.removeItem("guestName");
+            localStorage.removeItem("email");
+            window.location.href = "http://127.0.0.1:5000/";
+        }
+
+        const name = localStorage.getItem("loggedInUser");
+        const guest = localStorage.getItem("guestName");
+        const email = localStorage.getItem("email");
+
+        if (name) {
+            document.getElementById("msg").innerText = "Thero: Welcome " + name + ". Please write at least 50 words describing your problem.";
+        } else if (guest) {
+            document.getElementById("msg").innerText = "Thero: Welcome Guest " + guest + ". Please write at least 50 words describing your problem.";
+        } else if (email) {
+            document.getElementById("msg").innerText = "Thero: Welcome " + email + ". Please write at least 50 words describing your problem.";
+        }
+
+        let firstMessageSent = false;
+
+        async function sendMessage() {
+            let userInput = document.getElementById("user-input");
+            let message = userInput.value.trim();
+            let words = message.split(" ").filter(word => word.length > 0);
+
+            if (!firstMessageSent && words.length < 50) {
+                alert("Please write at least 50 words about your problem.");
+                return;
+            }
+
+            let chatBox = document.getElementById("chat-box");
+            let userMessage = document.createElement("div");
+            userMessage.classList.add("chat-message", "user-message");
+            userMessage.innerHTML = `<span>${message}</span>`;
+            chatBox.appendChild(userMessage);
+            userInput.value = "";
+            chatBox.scrollTop = chatBox.scrollHeight;
+
+            try {
+                let response = await fetch("/chat", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ message: message })
+                });
+
+                let data = await response.json();
+                let botMessage = document.createElement("div");
+                botMessage.classList.add("chat-message", "bot-message");
+                botMessage.innerHTML = `<span>Thero: ${data.response}</span>`;
+                chatBox.appendChild(botMessage);
+                chatBox.scrollTop = chatBox.scrollHeight;
+                firstMessageSent = true;
+            } catch (error) {
+                console.error("Error fetching response: ", error);
+            }
+        }
+
+        function handleKeyPress(event) {
+            if (event.key === "Enter") {
+                sendMessage();
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem("loggedInUser");
+            localStorage.removeItem("guestName");
+            localStorage.removeItem("email");
+            window.location.href = "login.html";
+        }
+
+        function glogout() {
+            localStorage.removeItem("loggedInUser");
+            localStorage.removeItem("guestName");
+            localStorage.removeItem("email");
+            window.location.href = "guest.html";
+        }
+    </script>
+</body>
+</html>

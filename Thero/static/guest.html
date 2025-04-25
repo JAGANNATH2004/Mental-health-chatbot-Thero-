@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guest Login - Thero</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+        }
+
+        body {
+            display: flex;
+            height: 100vh;
+            background-color: #cae8ff;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .login-container {
+            background-color: white;
+            padding: 40px;
+            border-radius: 20px;
+            width: 400px;
+            text-align: center;
+            position: relative;
+            box-shadow: 12px 12px 0px black;
+            border: 2px solid black;
+        }
+
+        .login-container img {
+            height: 100px;
+            width: auto;
+            margin-bottom: 20px;
+        }
+
+        .login-container input {
+            width: 90%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 2px solid black;
+            border-radius: 12px;
+            font-size: 16px;
+            color: #050a30;
+        }
+
+        .login-container button {
+            width: 50%;
+            padding: 10px;
+            margin-top: 20px;
+            background-color: #050a30;
+            color: white;
+            font-size: 18px;
+            border: none;
+            cursor: pointer;
+            border-radius: 12px;
+            font-weight: bold;
+            transition: transform 0.3s ease;
+        }
+
+        .login-container button:hover {
+            transform: translateY(-3px);
+            box-shadow: 5px 5px 10px rgba(0, 0, 0, 0.3);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="login-container">
+        <img src="Thero1.png" alt="Thero Logo">
+        <input type="text" id="guest" placeholder="Enter your name" onkeypress="handleKeyPress(event)" required>
+        <button onclick="validate()">Continue as Guest</button>
+    </div>
+    <script>
+        function validate() {
+            const guest = document.getElementById("guest").value;
+            if(guest){
+                localStorage.setItem("guestName", guest);
+                alert("You have successfully logged in as Guest!");
+                window.location.href = "bot.html";
+            }
+        }
+        function handleKeyPress(event) {
+            if(event.key === 'Enter'){
+                validate();
+            }
+        }
+    </script>
+</body>
+</html>

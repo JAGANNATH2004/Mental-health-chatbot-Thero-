@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign Up - Thero</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+        }
+
+        body {
+            display: flex;
+            height: 100vh;
+            background-color: #cae8ff;
+            justify-content: center;
+            align-items: center;
+        }
+        .signup-container {
+            background-color: white;
+            padding: 40px;
+            border-radius: 20px;
+            width: 400px;
+            text-align: center;
+            position: relative;
+            box-shadow: 12px 12px 0px black;
+            border: 2px solid black;
+        }
+
+        .signup-container img {
+            height: 100px;
+            width: auto;
+            margin-bottom: 20px;
+        }
+
+        .input-container {
+            position: relative;
+            width: 90%;
+            margin: 10px auto;
+        }
+
+        .input-container input {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid black;
+            border-radius: 12px;
+            font-size: 16px;
+            color: #050a30;
+            padding-right: 40px;
+        }
+
+        .toggle-password {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            font-size: 18px;
+        }
+
+        .signup-container button {
+            width: 50%;
+            padding: 10px;
+            margin-top: 20px;
+            background-color: #050a30;
+            color: white;
+            font-size: 18px;
+            border: none;
+            cursor: pointer;
+            border-radius: 12px;
+            font-weight: bold;
+            transition: transform 0.3s ease;
+        }
+
+        .signup-container button:hover {
+            transform: translateY(-3px);
+            box-shadow: 5px 5px 10px rgba(0, 0, 0, 0.3);
+        }
+        #message{
+            color: rgb(196, 3, 3);
+            font-size: 18px;
+            font-weight: bold;
+            margin-top: 20px;
+        }
+    </style>
+    <script>
+        function togglePassword(id) {
+            const input = document.getElementById(id);
+            const icon = document.getElementById(id + "-icon");
+            if (input.type === "password") {
+                input.type = "text";
+                icon.textContent = "👁️";
+            } else {
+                input.type = "password";
+                icon.textContent = "👁️‍🗨️";
+            }
+        }
+    </script>
+</head>
+<body>
+    <div class="signup-container">
+        <form id="signupForm">
+            <img src="Thero1.png" alt="Thero Logo">
+            <div class="input-container">
+                <input type="text" id="email" placeholder="Email" required>
+            </div>
+            <div class="input-container">
+                <input type="password" id="password" placeholder="Password" required>
+                <span class="toggle-password" id="password-icon" onclick="togglePassword('password')">👁️‍🗨️</span>
+            </div>
+            <div class="input-container">
+                <input type="password" id="confirmPassword" placeholder="Confirm Password" required>
+            </div>
+            <button type="submit">Sign Up</button>
+        </form>
+        <p id="message"></p>
+    </div>
+    <script>
+        document.getElementById("signupForm").addEventListener("submit", async function(event) {
+            event.preventDefault();
+
+            const email = document.getElementById("email").value;
+            const password = document.getElementById("password").value;
+            const confirmPassword = document.getElementById("confirmPassword").value;
+            const message = document.getElementById("message");
+
+            if (password !== confirmPassword) {
+                message.innerText = "Passwords do not match!";
+                return;
+            }
+
+            const response = await fetch("http://localhost:5000/signup", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email, password })
+            });
+            const data = await response.json();
+            message.innerText = data.message;
+            if (data.message == "Account created successfully") {
+                localStorage.setItem("email", email);
+                window.location.href = "bot.html";
+            }
+        });
+    </script>
+</body>
+</html>
