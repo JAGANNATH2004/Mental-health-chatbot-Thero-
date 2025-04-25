@@ -1,7 +1,7 @@
 import google.generativeai as genai
 
 # Replace with your actual API key
-genai.configure(api_key="AIzaSyDQY83Wqdgw94yHpgSiRyKOykdV317jzHs")
+genai.configure(api_key="Your api key")
 
 import json  
 from google.generativeai import list_models  
