@@ -5,6 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Thero.chat</title>
     <link rel="stylesheet" href="style.css">
+    <style>
+        /* Styling for typing indicator */
+        #typingIndicator {
+            font-style: italic;
+            color:  #050a30;
+            font-size: 17px;
+            margin-top: 10px;
+            transition: opacity 0.3s ease-in-out;
+        }
+    </style>
 </head>
 <body>
     <audio autoplay loop playsinline class="bg-audio">
@@ -31,6 +41,10 @@
                 <span id="msg">Thero: Welcome! Please write at least 50 words describing your problem.</span>
             </div>
         </div>
+        
+        <!-- Typing Indicator -->
+        <div id="typingIndicator" style="display:none;">Thero is typing...</div>
+
         <div class="input-container">
             <input type="text" id="user-input" placeholder="Type your message..." onkeypress="handleKeyPress(event)">
             <button id="send-button" type="submit" onclick="sendMessage()">Send</button>
@@ -77,6 +91,9 @@
             userInput.value = "";
             chatBox.scrollTop = chatBox.scrollHeight;
 
+            // Show typing indicator while waiting for the response
+            document.getElementById('typingIndicator').style.display = 'block';
+
             try {
                 let response = await fetch("/chat", {
                     method: "POST",
@@ -85,6 +102,10 @@
                 });
 
                 let data = await response.json();
+
+                // Hide typing indicator after receiving the response
+                document.getElementById('typingIndicator').style.display = 'none';
+
                 let botMessage = document.createElement("div");
                 botMessage.classList.add("chat-message", "bot-message");
                 botMessage.innerHTML = `<span>Thero: ${data.response}</span>`;
@@ -93,6 +114,7 @@
                 firstMessageSent = true;
             } catch (error) {
                 console.error("Error fetching response: ", error);
+                document.getElementById('typingIndicator').style.display = 'none';  // Hide typing indicator if there's an error
             }
         }
 
