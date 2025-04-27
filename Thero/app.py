@@ -9,15 +9,64 @@ import requests
 app = Flask(__name__)
 CORS(app)
 
+
+# Database connection
 def get_db_connection():
     return pymysql.connect(
         host="localhost",
         user="root",
-        password="shaaFIYA@123",
+        password="root",
         database="login_details"
     )
+# Login credentials check
+@app.route('/login', methods=['POST'])
+def login():
+    try:
+        data = request.get_json()
+        email = data.get('email')
+        password = data.get('password')
 
-GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', 'AIzaSyAEUAZ5hFkmsC1A3icCzknMX-UkCZx6zug')
+        connection = get_db_connection()
+        cursor = connection.cursor()
+
+        cursor.execute("SELECT * FROM users WHERE email = %s AND password = %s", (email, password))
+        user = cursor.fetchone()
+        cursor.close()
+        connection.close()
+
+        if user:
+            return jsonify({'message': 'Login successful'})
+        else:
+            return jsonify({'message': 'Login failed'}), 401
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# Creating an account
+@app.route('/signup', methods=['POST'])
+def signup():
+    try:
+        data = request.get_json()
+        email = data.get('email')
+        password = data.get('password')
+
+        connection = get_db_connection()
+        cursor = connection.cursor()
+
+        cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
+        existing_user = cursor.fetchone()
+        if existing_user:
+            return jsonify({'message': 'Email already exists'}), 400
+
+        cursor.execute("INSERT INTO users (email, password) VALUES (%s, %s)", (email, password))
+        connection.commit()
+        cursor.close()
+        connection.close()
+
+        return jsonify({'message': 'Account created successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', 'Your_API_Code_Paste_Here')
 genai.configure(api_key=GEMINI_API_KEY)
 model = genai.GenerativeModel('gemini-2.0-flash')
 
