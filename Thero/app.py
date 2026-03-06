@@ -1,40 +1,78 @@
-from flask import Flask, render_template, request, jsonify
-import google.generativeai as genai
+from flask import Flask, render_template, request, jsonify, session
 import os
 import re
 import pymysql
 from flask_cors import CORS
-import requests
+from dotenv import load_dotenv
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_core.prompts import PromptTemplate
+from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
+
+# Load environment variables
+load_dotenv()
 
 app = Flask(__name__)
+app.secret_key = os.getenv('SECRET_KEY', 'super-secret-default-key')
 CORS(app)
 
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
+if not GEMINI_API_KEY:
+    raise ValueError("GEMINI_API_KEY is not set in the environment variables. Please check your .env file.")
+
+# Initialize the LangChain LLM
+llm = ChatGoogleGenerativeAI(
+    model="gemini-2.5-flash",
+    google_api_key=GEMINI_API_KEY,
+    temperature=0.7
+)
+
+# Define the Prompt Template
+template = """You are an empathetic, intelligent mental health assistant named Thero. 
+Your ONLY purpose is to provide support, guidance, and active listening for emotional, psychological, and mental well-being topics.
+If the user's input is NOT related to mental health, emotions, therapy, stress, or well-being, you must politely decline to answer, remind them that you are a dedicated mental health assistant, and ask how they are feeling emotionally today.
+
+If it is a mental health topic: Provide a comprehensive, actionable, and deeply empathetic recommendation tailored specifically to their situation. 
+And also If user is requesting any audio songs or video songs suggest them with direct links with it's title.
+Your entire response MUST be strictly under 100 words.
+
+Current conversation history:
+{history}
+User: {input}
+Thero:"""
+
+PROMPT = PromptTemplate(input_variables=["history", "input"], template=template)
 
 # Database connection
 def get_db_connection():
     return pymysql.connect(
-        host="localhost",
-        user="root",
-        password="root",
-        database="login_details"
+        host=os.getenv('DB_HOST', "localhost"),
+        user=os.getenv('DB_USER', "root"),
+        password=os.getenv('DB_PASSWORD', "Your_password"), 
+        database=os.getenv('DB_NAME', "Your DB_name")
     )
+
 # Login credentials check
 @app.route('/login', methods=['POST'])
 def login():
     try:
-        data = request.get_json()
+        data = request.get_json(silent=True)
+        if not data or not data.get('email') or not data.get('password'):
+            return jsonify({'message': 'Missing email or password'}), 400
+
         email = data.get('email')
         password = data.get('password')
 
         connection = get_db_connection()
-        cursor = connection.cursor()
-
-        cursor.execute("SELECT * FROM users WHERE email = %s AND password = %s", (email, password))
-        user = cursor.fetchone()
-        cursor.close()
-        connection.close()
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT * FROM users WHERE email = %s AND password = %s", (email, password))
+                user = cursor.fetchone()
+        finally:
+            connection.close()
 
         if user:
+            session['user_email'] = email
+            session['user_name'] = data.get('name', 'User')
             return jsonify({'message': 'Login successful'})
         else:
             return jsonify({'message': 'Login failed'}), 401
@@ -45,227 +83,100 @@ def login():
 @app.route('/signup', methods=['POST'])
 def signup():
     try:
-        data = request.get_json()
+        data = request.get_json(silent=True)
+        if not data or not data.get('email') or not data.get('password'):
+            return jsonify({'message': 'Missing email or password'}), 400
+
         email = data.get('email')
         password = data.get('password')
 
         connection = get_db_connection()
-        cursor = connection.cursor()
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
+                existing_user = cursor.fetchone()
+                
+                if existing_user:
+                    return jsonify({'message': 'Email already exists'}), 400
 
-        cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
-        existing_user = cursor.fetchone()
-        if existing_user:
-            return jsonify({'message': 'Email already exists'}), 400
-
-        cursor.execute("INSERT INTO users (email, password) VALUES (%s, %s)", (email, password))
-        connection.commit()
-        cursor.close()
-        connection.close()
+                cursor.execute("INSERT INTO users (email, password) VALUES (%s, %s)", (email, password))
+                connection.commit()
+        finally:
+            connection.close()
 
         return jsonify({'message': 'Account created successfully'})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', 'Your_API_Code_Paste_Here')
-genai.configure(api_key=GEMINI_API_KEY)
-model = genai.GenerativeModel('gemini-2.0-flash')
+@app.route('/chat', methods=['POST'])
+def chat():
+    try:
+        data = request.get_json(silent=True)
+        user_input = data.get('message') if data else None
+        
+        if not user_input:
+            return jsonify({'error': 'No message provided'}), 400
 
-chat_history = []
-initial_description_submitted = False
-awaiting_question_permission = False
-question_flow_active = False
-awaiting_motivation_permission = False
-awaiting_music_permission = False
-awaiting_video_permission = False
-awaiting_memes_permission = False
-MAX_QUESTIONS = 5
-question_count = 0
-user_name = "User"
-user_condition = "Manageable"
+        # Load existing history if it exists
+        chat_history = []
+        if 'chat_history' in session:
+            for interaction in session['chat_history']:
+                if interaction['type'] == 'human':
+                    chat_history.append(HumanMessage(content=interaction['text']))
+                elif interaction['type'] == 'ai':
+                    chat_history.append(AIMessage(content=interaction['text']))
+        else:
+            session['chat_history'] = []
 
-restricted_topics = [
-    "sports", "cricket", "football", "food", "restaurants", "cars", "bikes",
-    "technology", "money", "business", "stocks", "politics", "cities", "travel",
-    "games", "gadgets", "coding", "programming", "shopping", "movies", "series",
-    "actor", "actress", "celebrities", "net worth", "luxury", "fashion"
-]
+        try:
+            # Format the conversation history string
+            history_str = ""
+            for msg in chat_history:
+                if isinstance(msg, HumanMessage):
+                    history_str += f"User: {msg.content}\n"
+                elif isinstance(msg, AIMessage):
+                    history_str += f"Thero: {msg.content}\n"
 
-casual_allowed_words = [
-    "hello", "hi", "okay", "ok", "yes", "no", "thank you", "thanks", "how are you",
-    "i am fine", "good", "great", "ready", "sure", "nice", "happy", "awesome"
-]
+            # Generate the response utilizing the built prompt
+            final_prompt = PROMPT.format(history=history_str, input=user_input)
+            response = llm.invoke(final_prompt)
+            raw_response = response.content
+            
+            # Save the new interaction back to the Flask session so it persists for the next request
+            session['chat_history'].append({'type': 'human', 'text': user_input})
+            session['chat_history'].append({'type': 'ai', 'text': raw_response})
+            
+            # Simple summarization if history gets too long (over 10 messages)
+            if len(session['chat_history']) > 10:
+                # Keep last 6 messages (3 turns)
+                session['chat_history'] = session['chat_history'][-6:]
+                
+            session.modified = True
+            
+            # Clean up formatting for the frontend (removing markdown)
+            response_text = re.sub(r'\*\*(.*?)\*\*', r'\1', raw_response) 
+            response_text = re.sub(r'\*(.*?)\*', r'\1', response_text)     
+            response_text = re.sub(r'```.*?\n', '', response_text, flags=re.DOTALL) 
+            response_text = re.sub(r'`(.*?)`', r'\1', response_text)       
+            response_text = response_text.replace('*', '')                 
+            response_text = re.sub(r'\n{2,}', '\n', response_text)         
 
-def format_response(response):
-    response = re.sub(r'\*\*(.*?)\*\*', r'\1', response)
-    response = re.sub(r'\*(.*?)\*', r'\1', response)
-    response = re.sub(r'```.*?\n', '', response, flags=re.DOTALL)
-    response = re.sub(r'`(.*?)`', r'\1', response)
-    response = re.sub(r'\n{2,}', '\n\n', response)
-    response = response.replace('*', '')
-    response = response.replace("Google", "Thero")
-    sentences = re.split(r'(?<=[.!?])\s+', response.strip())[:5]
-    short_response = " ".join(sentences)
-    return f"{short_response}"
 
-def search_dynamic_content(query):
-    search_results = {
-        'songs': [
-            {"title": "Fight Song", "url": "https://www.youtube.com/watch?v=xo1VInw-SKc"},
-            {"title": "Don't Stop Believin'", "url": "https://www.youtube.com/watch?v=1k8craCGpgs"}
-        ],
-        'videos': [
-            {"title": "Believe in Yourself", "url": "https://www.youtube.com/watch?v=mgmVOuLgFB0"},
-            {"title": "Unbroken - Motivational Speech", "url": "https://www.youtube.com/watch?v=26U_seo0a1g"}
-        ],
-        'memes': [
-            "Why don’t skeletons fight each other? They don’t have the guts.",
-            "Parallel lines have so much in common. It’s a shame they’ll never meet."
-        ]
-    }
-    return search_results
+        except ValueError:
+            response_text = "I'm sorry, I cannot respond to that prompt due to safety guidelines."
+        except Exception as api_err:
+            app.logger.error(f"Generate content error: {api_err}")
+            response_text = "Oops! Thero had a little trouble thinking. Give me a moment and try asking me again."
+
+        return jsonify({'response': response_text})
+
+    except Exception as e:
+        app.logger.error(f"Chat route error: {e}")
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/')
 def index():
     return render_template('index.html')
-
-@app.route('/chat', methods=['POST'])
-def chat():
-    global chat_history, initial_description_submitted, awaiting_question_permission
-    global question_flow_active, question_count, awaiting_motivation_permission
-    global awaiting_music_permission, awaiting_video_permission, awaiting_memes_permission
-    global user_name, user_condition
-
-    user_input = request.json.get('message')
-    email = request.json.get('email')
-
-    if not user_input:
-        return jsonify({'error': 'No message provided'}), 400
-
-    try:
-        if email:
-            connection = get_db_connection()
-            cursor = connection.cursor()
-            cursor.execute("SELECT name FROM users WHERE email = %s", (email,))
-            result = cursor.fetchone()
-            if result:
-                user_name = result[0]
-            cursor.close()
-            connection.close()
-
-        user_input_lower = user_input.lower()
-
-        if any(topic in user_input_lower for topic in restricted_topics):
-            if not any(allowed in user_input_lower for allowed in casual_allowed_words):
-                return jsonify({'response': f"Sorry {user_name}, let's stay focused on health, motivation, and emotional well-being topics. Let me know how you're feeling!"})
-
-        chat_history.append({'role': 'user', 'parts': [user_input]})
-
-        if not initial_description_submitted:
-            words = len(user_input.strip().split())
-            if words < 50:
-                return jsonify({'error': 'Please write at least 50 words about your problem.'}), 400
-            initial_description_submitted = True
-            awaiting_question_permission = True
-            response_text = f"Dear {user_name}, thank you for sharing. To understand your situation deeply, I would like to ask you 5 simple questions. Shall we begin?"
-            return jsonify({'response': response_text})
-
-        if awaiting_question_permission:
-            if any(word in user_input_lower for word in ['yes', 'ok', 'okay', 'ready', 'sure']):
-                awaiting_question_permission = False
-                question_flow_active = True
-                question_count = 1
-                prompt = f"Ask question {question_count} to {user_name}. Keep it short with 3-4 multiple-choice options."
-                response = model.generate_content(chat_history + [{'role': 'user', 'parts': [prompt]}])
-                formatted = format_response(response.text)
-                chat_history.append({'role': 'model', 'parts': [formatted]})
-                return jsonify({'response': formatted})
-            else:
-                return jsonify({'response': f"Okay {user_name}, let me know when you are ready to start the questions."})
-
-        if question_flow_active:
-            if question_count < MAX_QUESTIONS:
-                question_count += 1
-                prompt = f"Ask question {question_count} to {user_name}. Keep it short with 3-4 options. Base it on earlier responses."
-                response = model.generate_content(chat_history + [{'role': 'user', 'parts': [prompt]}])
-                formatted = format_response(response.text)
-                chat_history.append({'role': 'model', 'parts': [formatted]})
-                return jsonify({'response': formatted})
-            else:
-                question_flow_active = False
-                awaiting_motivation_permission = True
-                combined_text = " ".join([msg['parts'][0] for msg in chat_history if msg['role'] == 'user']).lower()
-                if any(word in combined_text for word in ['severe', 'overwhelming', 'hopeless', 'suicidal']):
-                    user_condition = "Severe"
-                elif any(word in combined_text for word in ['struggling', 'difficult', 'painful', 'very sad']):
-                    user_condition = "Critical"
-                else:
-                    user_condition = "Manageable"
-                analysis_text = f"Thero: Based on your answers, here is my understanding of your emotional condition: {user_condition}. Would you like me to share a motivational message to uplift you?"
-                return jsonify({'response': analysis_text})
-
-        if awaiting_motivation_permission:
-            if any(word in user_input_lower for word in ['yes', 'ok', 'okay', 'ready', 'sure']):
-                awaiting_motivation_permission = False
-                awaiting_music_permission = True
-                prompt = f"Write a motivational message of more than 150 words for {user_name} who is facing {user_condition} emotional condition."
-                response = model.generate_content([{'role': 'user', 'parts': [prompt]}])
-                formatted = format_response(response.text)
-                question = "\n\nWould you also like me to suggest motivational songs with YouTube links?"
-                return jsonify({'response': formatted + question})
-            else:
-                return jsonify({'response': f"Okay {user_name}, let me know if you would like to continue."})
-
-        if awaiting_music_permission:
-            if any(word in user_input_lower for word in ['yes', 'ok', 'okay', 'ready', 'sure']):
-                awaiting_music_permission = False
-                awaiting_video_permission = True
-                dynamic_content = search_dynamic_content('motivational songs')
-                music_response = (
-                    "Here are some motivational songs:\n\n"
-                    f"1. {dynamic_content['songs'][0]['title']} - {dynamic_content['songs'][0]['url']}\n"
-                    f"2. {dynamic_content['songs'][1]['title']} - {dynamic_content['songs'][1]['url']}\n\n"
-                    "Would you also like me to suggest motivational YouTube videos?"
-                )
-                return jsonify({'response': music_response})
-            else:
-                return jsonify({'response': f"Okay {user_name}, let me know if you want motivational songs later."})
-
-        if awaiting_video_permission:
-            if any(word in user_input_lower for word in ['yes', 'ok', 'okay', 'ready', 'sure']):
-                awaiting_video_permission = False
-                awaiting_memes_permission = True
-                dynamic_content = search_dynamic_content('motivational videos')
-                video_response = (
-                    "Here are some motivational YouTube videos:\n\n"
-                    f"1. {dynamic_content['videos'][0]['title']} - {dynamic_content['videos'][0]['url']}\n"
-                    f"2. {dynamic_content['videos'][1]['title']} - {dynamic_content['videos'][1]['url']}\n\n"
-                    "Would you also like me to share funny memes or jokes to cheer you up?"
-                )
-                return jsonify({'response': video_response})
-            else:
-                return jsonify({'response': f"Okay {user_name}, let me know if you want YouTube videos later."})
-
-        if awaiting_memes_permission:
-            if any(word in user_input_lower for word in ['yes', 'ok', 'okay', 'ready', 'sure']):
-                awaiting_memes_permission = False
-                dynamic_content = search_dynamic_content('memes')
-                memes_response = (
-                    f"Here are some funny memes to cheer you up:\n\n"
-                    f"1. {dynamic_content['memes'][0]}\n"
-                    f"2. {dynamic_content['memes'][1]}\n\n"
-                    "Is there anything else you would like to talk about? I'm here for you!"
-                )
-                return jsonify({'response': memes_response})
-            else:
-                return jsonify({'response': f"Okay {user_name}, let me know if you want memes later."})
-
-        response = model.generate_content(chat_history)
-        formatted = format_response(response.text)
-        chat_history.append({'role': 'model', 'parts': [formatted]})
-        return jsonify({'response': formatted})
-
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True)
